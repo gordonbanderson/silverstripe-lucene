@@ -124,6 +124,7 @@ class ZendSearchLuceneWrapper {
      *                                  extension, it is not indexed.
      */
     public static function index($object) {
+        error_log("INDEXING ".$object->ID);
         if ( ! Object::has_extension($object->ClassName, 'ZendSearchLuceneSearchable') ) {
             return;
         }
@@ -394,22 +395,42 @@ class ZendSearchLuceneWrapper {
             }
         }
         $indexed = array();
+        $batchSize = 500;
         foreach( $extendedClasses as $className ) {
+            // "INDEXING ".$className."\n";
             $config = singleton($className)->getLuceneClassConfig();
-            $objects = DataObject::get($className, $config['index_filter']);
-            if ( $objects === null ) continue;
-            foreach( $objects as $object ) {
-                // SiteTree objects only get indexed if they're published...
-                if ( $object->is_a('SiteTree') && ! $object->getExistsOnLive() ) continue;
-                // Only re-index if we haven't already indexed this DataObject
-                if ( ! array_key_exists($object->ClassName.' '.$object->ID, $indexed) ) {
-                    $indexed[$object->ClassName.' '.$object->ID] = array(
-                        $object->ClassName, 
-                        $object->ID
-                    );
-                }
+            //$objects = DataList::create($className)->where($config['index_filter']);
+            $nObjects = DataList::create($className)->where($config['index_filter'])->count();
+            $nPages = 1 + ($nObjects / $batchSize);
+             "NUMBER TO INDEX:".$nObjects."\n";
+            for ($i=0; $i < $nPages; $i++) {
+                "Getting page $i of $nPages\n";
+                $objects = DataList::create($className)->where($config['index_filter'])->limit($batchSize,$batchSize*$i);
+                if ( $objects->count() == 0 ) {
+                    echo "SKIPPED $className, no objects to index\n";
+                    continue;
+                    }
+                    foreach( $objects as $object ) {
+                        // SiteTree objects only get indexed if they're published...
+                        if ( $object->is_a('SiteTree') && ! $object->getExistsOnLive() ) {
+                            echo "SKIPPED $className T\n";
+                            continue;
+                        }
+                        // Only re-index if we haven't already indexed this DataObject
+                        if ( ! array_key_exists($object->ClassName.' '.$object->ID, $indexed) ) {
+                            $indexed[$object->ClassName.' '.$object->ID] = array(
+                                $object->ClassName, 
+                                $object->ID
+                            );
+                        } else {
+                            echo "SKIPPED $className T2, already indexed";
+                        }
+                    }
             }
+            
         }
+
+        // "TOTAL ITEMS REFERENCED TO INDEX:".count($indexed)."\n";
         return $indexed;
     }
 
