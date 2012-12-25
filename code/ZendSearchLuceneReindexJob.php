@@ -40,11 +40,16 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
 	
 		$obj = DataObject::get_by_id($item[0], $item[1]);
 
+
         ZendSearchLuceneWrapper::index($obj);
 
 		// and now we store the new list of remaining children
 		$this->remainingDocuments = $remainingDocuments;
 
+		$nRemaining = count($remainingDocuments);
+		if ($nRemaing % 100 == 0) {
+			echo 'Documents remaining to index:'.$nRemaining;
+		}
 		if (!count($remainingDocuments)) {
 			$this->isComplete = true;
 			return;
