@@ -27,7 +27,7 @@
  * @author Darren Inwood <darren.inwood@chrometoaster.com>
  */
 
-class ZendSearchLuceneSearchable extends DataObjectDecorator {
+class ZendSearchLuceneSearchable extends DataExtension {
 
     /**
      * Number of results per pagination page 
@@ -376,6 +376,7 @@ class ZendSearchLuceneSearchable extends DataObjectDecorator {
         // Obey index filter rules
         $objs = ZendSearchLuceneWrapper::getAllIndexableObjects($this->owner->ClassName);
         ZendSearchLuceneWrapper::delete($this->owner);
+        
         foreach( $objs as $obj ) {
             if ( ! is_object($obj) ) continue;
             if ( ! is_object($this->owner) ) continue;
@@ -383,6 +384,7 @@ class ZendSearchLuceneSearchable extends DataObjectDecorator {
                 ZendSearchLuceneWrapper::index($this->owner);
             }
         }
+        
         parent::onAfterWrite();
     }
 
