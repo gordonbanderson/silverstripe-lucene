@@ -6,7 +6,7 @@
  * @package lucene-silverstripe-module
  * @author Darren Inwood <darren.inwood@chrometoaster.com>
  */
-class ZendSearchLuceneCMSDecorator extends LeftAndMainDecorator {
+class ZendSearchLuceneCMSDecorator extends LeftAndMainExtension {
 
     /**
      * Enables the extra button added via ZendSearchLuceneSiteConfig.
@@ -27,11 +27,14 @@ class ZendSearchLuceneCMSDecorator extends LeftAndMainDecorator {
      */
     public function rebuildZendSearchLuceneIndex() {
         ZendSearchLuceneWrapper::rebuildIndex();
+        /*
         FormResponse::status_message( 
             _t('ZendSearchLucene.SuccessMessage', 'A Lucene search index rebuild job has been added to the Jobs queue.'),
             'good'
         );
         return FormResponse::respond();
+        */
+        return ''; //FIXME
     }
 
     /**
