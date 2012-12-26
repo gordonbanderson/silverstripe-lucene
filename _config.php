@@ -8,5 +8,5 @@ set_include_path(
 
 Director::addRules(
     100, 
-    array( 'Lucene' => 'LeftAndMain' )
+    array( 'Lucene' => 'LeftAndMain', 'LuceneCLI' => 'ZendSearchLuceneCommandLineController' )
 );
