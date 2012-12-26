@@ -26,6 +26,8 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
     }
 
     public function process() {
+    	error_log("++++ REINDEX JOB ++++");
+    	$batchSize = 100;
 		$remainingDocuments = $this->remainingDocuments;
 
 		// if there's no more, we're done!
@@ -34,22 +36,74 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
 			return;
 		}
 		
-		$this->currentStep++;
+		$items = array();
+		for ($i=0; $i < $batchSize; $i++) {
+
+        	
+			$item = array_shift($remainingDocuments);
+			if (count($remainingDocuments) == 0) {
+				error_log("NO REMAINING DOCS");
+				break;
+			}
+
+			$className = $item[0];
+			if(!isset($items[$className])) {
+				$items[$className] = array();
+			}
+
+			$classNameItems = $items[$className];
+
+			array_push($classNameItems, $item);
+			$items[$className] = $classNameItems;
+		}
+
+		error_log("****** ITEMS *****");
+		print_r($items);
+
+
+		foreach ($items as $className => $classNameItems) {
+			$ids = array();
+			foreach ($classNameItems as $item) {
+				// push the id
+				array_push($ids, $item[1]);
+			}
+
+			$idsCSV = implode(',', $ids);
+
+			error_log("$className => IDS ".$idsCSV);
+
+			$startTime = time();
+
+			//$idsCSV = '28516,28669,29073,29098,29514,29692,29777,30006,30029,30380,30401,30645,30675,30725,30776,30815,30909,30918,31460,31612,31630,31685,31874,32359,34593,34827,34664,34696,34911,35534,35682,35033,35809,36024,36155,35853,35923,36129,36198,36237,35882,35965,36396,36507,36603,36622,36702,36854';
+
+			$objects = SiteTree::get()->where("ID in (".$idsCSV.")");
+			error_log("N OBJECTS FOUND FOR $className: ".$objects->count());
+			foreach ($objects as $obj) {
+				//error_log("INDEXING $className:".$obj->ID);
+        		ZendSearchLuceneWrapper::index($obj,false);
+        		$this->currentStep++;
+
+			}
+
+			// commit after the batch
+			ZendSearchLuceneWrapper::getIndex()->commit();
+
+			$elapsedTime = time()-$startTime;
+        	error_log("INDEX TIME FOR $batchSize objects:".$elapsedTime);
+
+		}
+
+
 		
-		$item = array_shift($remainingDocuments);
 	
-		$obj = DataObject::get_by_id($item[0], $item[1]);
-
-
-        ZendSearchLuceneWrapper::index($obj);
+		
 
 		// and now we store the new list of remaining children
 		$this->remainingDocuments = $remainingDocuments;
 
 		$nRemaining = count($remainingDocuments);
-		if ($nRemaing % 100 == 0) {
-			echo 'Documents remaining to index:'.$nRemaining;
-		}
+			echo 'Documents remaining to index:'.$nRemaining."\n";
+		
 		if (!count($remainingDocuments)) {
 			$this->isComplete = true;
 			return;
