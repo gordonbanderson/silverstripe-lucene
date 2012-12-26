@@ -123,9 +123,10 @@ class ZendSearchLuceneWrapper {
      *                                  does not have the ZendSearchLuceneSearchable
      *                                  extension, it is not indexed.
      */
-    public static function index($object) {
-        error_log("INDEXING ".$object->ID);
+    public static function index($object, $commitAfterAddingDocument = true) {
+        error_log("INDEXING ".$object->ClassName.':'.$object->ID."\n");
         if ( ! Object::has_extension($object->ClassName, 'ZendSearchLuceneSearchable') ) {
+            error_log("NOT INDEXABLE");
             return;
         }
 
@@ -136,23 +137,34 @@ class ZendSearchLuceneWrapper {
 
         $doc = new Zend_Search_Lucene_Document();
         if ( $object->is_a('File') ) {
+            error_log("CHECKING FILE TYPE");
             // Files get text extracted if possible
             if ( $object->class == 'Folder' ) {
+                error_log("Skip folder indexing");
                 return;
             }
             // Loop through all file text extractors...
             foreach( self::getTextExtractorClasses() as $extractor_class ) {
                 $extensions = new ReflectionClass($extractor_class);
                 $extensions = $extensions->getStaticPropertyValue('extensions');
-                if ( ! in_array(strtolower(File::get_file_extension($object->Filename)), $extensions) ) continue;
+                if ( ! in_array(strtolower(File::get_file_extension($object->Filename)), $extensions) ) {
+                    //error_log("Skipping extractor $extractor_class as extension not valid");
+                    continue;
+                }
                 // Try any that support the given file extension
                 $content = call_user_func(
                     array($extractor_class, 'extract'), 
                     Director::baseFolder().'/'.$object->Filename
                 );
-                if ( ! $content ) continue;
+                if ( ! $content ) {
+                    //error_log("Extractor found not indexable content");
+                    continue;
+                }
+
+                //error_log("Indexable content found");
                 // Use the first extractor we find that gives us content.
                 $doc = new Zend_Search_Lucene_Document();
+                //error_log("Adding extracted content field from file:".$content);
                 $doc->addField(
                     Zend_Search_Lucene_Field::Text(
                         'body',  // We're storing text in files in a field called 'body'.
@@ -179,8 +191,16 @@ class ZendSearchLuceneWrapper {
             $doc->addField(Zend_Search_Lucene_Field::UnIndexed('Link', $object->Link()));
         }
 
+        error_log("adding doc to index");
         $index->addDocument($doc);
-        $index->commit();
+        if ($commitAfterAddingDocument) {
+            $index->commit();
+        }
+
+        error_log("After adding document index size is ".$index->count());
+        error_log("After adding document num docs is ".$index->numDocs());
+
+
     }
 
     /**
@@ -402,18 +422,23 @@ class ZendSearchLuceneWrapper {
             //$objects = DataList::create($className)->where($config['index_filter']);
             $nObjects = DataList::create($className)->where($config['index_filter'])->count();
             $nPages = 1 + ($nObjects / $batchSize);
-             "NUMBER TO INDEX:".$nObjects."\n";
+            echo "NUMBER OF OBJECT OF CLASS $className TO POSSIBLY INDEX:".$nObjects."\n";
+            $ctr = 0;
             for ($i=0; $i < $nPages; $i++) {
-                "Getting page $i of $nPages\n";
+                "Getting page $i of $nPages\n FILTER is ".$config['index_filter'];
                 $objects = DataList::create($className)->where($config['index_filter'])->limit($batchSize,$batchSize*$i);
                 if ( $objects->count() == 0 ) {
-                    echo "SKIPPED $className, no objects to index\n";
+                    echo "FINISHED FINDING INDEXABLES FOR $className (".$ctr.") \n";
+                    $ctr = 0;
                     continue;
+                    }
+                    else {
+                        $ctr = $ctr + $objects->count();
                     }
                     foreach( $objects as $object ) {
                         // SiteTree objects only get indexed if they're published...
                         if ( $object->is_a('SiteTree') && ! $object->getExistsOnLive() ) {
-                            echo "SKIPPED $className T\n";
+                            echo "SKIPPED $className T1 (not published)\n";
                             continue;
                         }
                         // Only re-index if we haven't already indexed this DataObject
@@ -423,7 +448,7 @@ class ZendSearchLuceneWrapper {
                                 $object->ID
                             );
                         } else {
-                            echo "SKIPPED $className T2, already indexed";
+                            //echo "SKIPPED $className T2, already indexed\n";
                         }
                     }
             }
