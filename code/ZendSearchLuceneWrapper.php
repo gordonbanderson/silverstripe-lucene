@@ -422,13 +422,13 @@ class ZendSearchLuceneWrapper {
             //$objects = DataList::create($className)->where($config['index_filter']);
             $nObjects = DataList::create($className)->where($config['index_filter'])->count();
             $nPages = 1 + ($nObjects / $batchSize);
-            echo "NUMBER OF OBJECT OF CLASS $className TO POSSIBLY INDEX:".$nObjects."\n";
+            error_log("NUMBER OF OBJECT OF CLASS $className TO POSSIBLY INDEX:".$nObjects."\n");
             $ctr = 0;
             for ($i=0; $i < $nPages; $i++) {
                 "Getting page $i of $nPages\n FILTER is ".$config['index_filter'];
                 $objects = DataList::create($className)->where($config['index_filter'])->limit($batchSize,$batchSize*$i);
                 if ( $objects->count() == 0 ) {
-                    echo "FINISHED FINDING INDEXABLES FOR $className (".$ctr.") \n";
+                    error_log( "FINISHED FINDING INDEXABLES FOR $className (".$ctr.") \n");;
                     $ctr = 0;
                     continue;
                     }
@@ -438,7 +438,7 @@ class ZendSearchLuceneWrapper {
                     foreach( $objects as $object ) {
                         // SiteTree objects only get indexed if they're published...
                         if ( $object->is_a('SiteTree') && ! $object->getExistsOnLive() ) {
-                            echo "SKIPPED $className T1 (not published)\n";
+                            error_log( "SKIPPED $className T1 (not published)\n");
                             continue;
                         }
                         // Only re-index if we haven't already indexed this DataObject
@@ -448,7 +448,7 @@ class ZendSearchLuceneWrapper {
                                 $object->ID
                             );
                         } else {
-                            //echo "SKIPPED $className T2, already indexed\n";
+                            //error_log( "SKIPPED $className T2, already indexed\n";
                         }
                     }
             }
