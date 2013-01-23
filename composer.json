@@ -16,6 +16,6 @@
 	"require":
 	{
 		"silverstripe/framework": "3.*",
-		"silverstripe/queuedjobs":"1.4.2"
+		"silverstripe/queuedjobs":"*"
 	}
 }
