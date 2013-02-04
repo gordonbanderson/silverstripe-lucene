@@ -55,6 +55,9 @@ class ZendSearchLuceneWrapper {
      */
     public static function find($query) {
         $index = self::getIndex();
+
+        error_log("Looking for:".print_r($query,1));
+        
         try {
             $hits = $index->find($query);
         } catch ( Exception $e) {
@@ -125,7 +128,9 @@ class ZendSearchLuceneWrapper {
      */
     public static function index($object, $commitAfterAddingDocument = true) {
         error_log("INDEXING ".$object->ClassName.':'.$object->ID."\n");
-        if ( ! Object::has_extension($object->ClassName, 'ZendSearchLuceneSearchable') ) {
+
+        $c = singleton($object->ClassName);
+        if ( ! $c::has_extension('ZendSearchLuceneSearchable') ) {
             error_log("NOT INDEXABLE");
             return;
         }
@@ -240,7 +245,8 @@ class ZendSearchLuceneWrapper {
      *                                  extension, it is not deleted.
      */
     public static function delete($object) {
-        if ( ! Object::has_extension($object->ClassName, 'ZendSearchLuceneSearchable') ) {
+        $c = Singleton($object->ClassName);
+        if ( ! $c::has_extension('ZendSearchLuceneSearchable') ) {
             return;
         }
         $index = self::getIndex();
@@ -406,21 +412,36 @@ class ZendSearchLuceneWrapper {
      * Returns a data array of all indexable DataObjects.  For use when reindexing.
      */
     public static function getAllIndexableObjects($className='DataObject') {
+        error_log("Get all indexable objects for class ".$className);
+
+      
+
         // We'll estimate that we'll be indexing the same number of things as last time...
         $possibleClasses = ClassInfo::subclassesFor($className);
         $extendedClasses = array();
         foreach( $possibleClasses as $possibleClass ) {
-            if ( Object::has_extension($possibleClass, 'ZendSearchLuceneSearchable') ) {
+            error_log("Checking class ".$possibleClass);
+            $c = singleton($possibleClass);
+            if ( $c::has_extension('ZendSearchLuceneSearchable') ) {
+                error_log("**** Adding ".$possibleClass);
                 $extendedClasses[] = $possibleClass;
+            } else {
+                error_log("Class ".$possibleClass." does not have extension ZendSearchLuceneSearchable");
             }
         }
         $indexed = array();
         $batchSize = 500;
+
+        $extendedClasses[] = 'SiteTree';
+        error_log("EXTENDED CLASSES:".count($extendedClasses));
+
         foreach( $extendedClasses as $className ) {
-            // "INDEXING ".$className."\n";
+            error_log("INDEXING ".$className);
             $config = singleton($className)->getLuceneClassConfig();
+            error_log("CONFIG:".$config);
             //$objects = DataList::create($className)->where($config['index_filter']);
             $nObjects = DataList::create($className)->where($config['index_filter'])->count();
+            error_log(DataList::create($className)->where($config['index_filter'])->sql());
             $nPages = 1 + ($nObjects / $batchSize);
             error_log("NUMBER OF OBJECT OF CLASS $className TO POSSIBLY INDEX:".$nObjects."\n");
             $ctr = 0;
