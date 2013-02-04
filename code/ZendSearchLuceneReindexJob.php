@@ -21,6 +21,7 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
         // Wipe current index
         ZendSearchLuceneWrapper::getIndex(true);
         $indexed = ZendSearchLuceneWrapper::getAllIndexableObjects();
+        error_log("INDEXABLE OBJECTS:".count($indexed));
         $this->remainingDocuments = $indexed;
         $this->totalSteps = count($indexed);
     }
@@ -30,9 +31,12 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
     	$batchSize = 100;
 		$remainingDocuments = $this->remainingDocuments;
 
+		error_log("REMAINING DOCUMENTS - TO GO:".count($remainingDocuments));
+
 		// if there's no more, we're done!
 		if (!count($remainingDocuments)) {
 			$this->isComplete = true;
+			error_log("RETURN FROM REINDEX AS DOCS ALL DONE - T1");
 			return;
 		}
 		
@@ -41,10 +45,8 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
 
         	
 			$item = array_shift($remainingDocuments);
-			if (count($remainingDocuments) == 0) {
-				error_log("NO REMAINING DOCS");
-				break;
-			}
+			error_log('SIFT ITEM '.$i.": ".$item[0]. ' --> ID '.$item[1]);
+			
 
 			$className = $item[0];
 			if(!isset($items[$className])) {
@@ -55,6 +57,11 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
 
 			array_push($classNameItems, $item);
 			$items[$className] = $classNameItems;
+
+			if (count($remainingDocuments) == 0) {
+				error_log("NO REMAINING DOCS");
+				break;
+			}
 		}
 
 		error_log("****** ITEMS *****");
@@ -76,7 +83,7 @@ class ZendSearchLuceneReindexJob extends AbstractQueuedJob implements QueuedJob 
 
 			//$idsCSV = '28516,28669,29073,29098,29514,29692,29777,30006,30029,30380,30401,30645,30675,30725,30776,30815,30909,30918,31460,31612,31630,31685,31874,32359,34593,34827,34664,34696,34911,35534,35682,35033,35809,36024,36155,35853,35923,36129,36198,36237,35882,35965,36396,36507,36603,36622,36702,36854';
 
-			$objects = SiteTree::get()->where("ID in (".$idsCSV.")");
+			$objects = DataList::create($className)->where("ID in (".$idsCSV.")");
 			error_log("N OBJECTS FOUND FOR $className: ".$objects->count());
 			foreach ($objects as $obj) {
 				//error_log("INDEXING $className:".$obj->ID);
